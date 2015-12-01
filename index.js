@@ -24,8 +24,35 @@ var PATH_REGEXP = new RegExp([
   // "/:test(\\d+)?" => ["/", "test", "\d+", undefined, "?", undefined]
   // "/route(\\d+)"  => [undefined, undefined, undefined, "\d+", undefined, undefined]
   // "/*"            => ["/", undefined, undefined, undefined, undefined, "*"]
-  '([\\/.])?(?:(?:\\:(\\w+)(?:\\(((?:\\\\.|[^()])+)\\))?|\\(((?:\\\\.|[^()])+)\\))([+*?])?|(\\*))'
+  [
+  '([\\/.])?(?:(?:\\:(\\w+)(?:\\(((?:\\\\.|[^()])+)\\))?|\\(((?:\\\\.|[^()])+)\\))',
+  // match valType
+  '(\{(number|integer|float|string)\})?',
+  // match suffix and asterisk
+  '([+*?])?|(\\*))'
+  ].join('')
 ].join('|'), 'g')
+
+/**
+ * Given a value type as string, return a regex that would
+ * match it, if applicable.
+ *
+ * "string" returns undefined, as it depends on delimiter and asterisk.
+ *
+ * @param {string} valType
+ * @return Regexp pattern as string.
+ */
+function typeRegex (valType) {
+  // Assumes numbers starting with "0" are valid.
+  // They're parsed fine by parseFloat and parseInt.
+  if (valType === 'number' || valType === 'float') {
+    return '[+-]?[0-9]*\.?[0-9]+'
+  }
+  if (valType === 'integer') {
+    return '[+-]?[0-9]+'
+  }
+  return undefined
+}
 
 /**
  * Parse a string for the raw tokens.
@@ -63,22 +90,28 @@ function parse (str) {
     var name = res[3]
     var capture = res[4]
     var group = res[5]
-    var suffix = res[6]
-    var asterisk = res[7]
+    // res[6] is "{valType}"
+    var valType = res[7]
+    var suffix = res[8]
+    var asterisk = res[9]
 
     var repeat = suffix === '+' || suffix === '*'
     var optional = suffix === '?' || suffix === '*'
     var delimiter = prefix || '/'
-    var pattern = capture || group || (asterisk ? '.*' : '[^' + delimiter + ']+?')
+    var pattern = capture || group || typeRegex(valType) || (asterisk ? '.*' : '[^' + delimiter + ']+?')
 
-    tokens.push({
+    var token = {
       name: name || key++,
       prefix: prefix || '',
       delimiter: delimiter,
       optional: optional,
       repeat: repeat,
       pattern: escapeGroup(pattern)
-    })
+    }
+    if (valType !== undefined) {
+      token.valType = valType
+    }
+    tokens.push(token)
   }
 
   // Match any characters still remaining.
@@ -210,6 +243,22 @@ function escapeGroup (group) {
  */
 function attachKeys (re, keys) {
   re.keys = keys
+  re.typedMatch = function (str) {
+    var m = str.match(re)
+    if (!m) {
+      return
+    }
+    var t
+    for (var i = 1; i < m.length; i++) {
+      t = keys[i - 1].valType
+      if (t === 'number' || t === 'float') {
+        m[i] = parseFloat(m[i])
+      } else if (t === 'integer') {
+        m[i] = parseInt(m[i], 10)
+      }
+    }
+    return m
+  }
   return re
 }
 

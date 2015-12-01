@@ -1763,6 +1763,120 @@ var TESTS = [
     [
       [{ foo: 'café' }, '/caf%C3%A9']
     ]
+  ],
+
+  /**
+   * Typed matches
+   */
+   [
+     '/:foo{float}',
+     null,
+     [
+       {
+         name: 'foo',
+         prefix: '/',
+         delimiter: '/',
+         optional: false,
+         repeat: false,
+         pattern: '[+-]?[0-9]*\.?[0-9]+',
+         valType: 'float'
+       }
+     ],
+     [
+       ['/432.94', ['/432.94', '432.94']],
+       ['/-432.94', ['/-432.94', '-432.94']],
+       ['/-.9', ['/-.9', '-.9']],
+       ['/+0.9', ['/+0.9', '+0.9']],
+       ['/+5', ['/+5', '+5']],
+       ['/notanumber', null]
+     ],
+     [
+       [{ foo: 432.94 }, '/432.94'],
+       [{ foo: 'notanumber' }, null]
+     ]
+  ],
+  [
+    '/:foo{number}',
+    null,
+    [
+      {
+        name: 'foo',
+        prefix: '/',
+        delimiter: '/',
+        optional: false,
+        repeat: false,
+        pattern: '[+-]?[0-9]*\.?[0-9]+',
+        valType: 'number'
+      }
+    ],
+    [
+      ['/432.94', ['/432.94', '432.94']],
+      ['/-432.94', ['/-432.94', '-432.94']],
+      ['/-.9', ['/-.9', '-.9']],
+      ['/+0.9', ['/+0.9', '+0.9']],
+      ['/+5', ['/+5', '+5']],
+      ['/notanumber', null]
+    ],
+    [
+      [{ foo: 432.94 }, '/432.94'],
+      [{ foo: 'notanumber' }, null]
+    ]
+  ],
+  [
+    '/:foo{integer}',
+    null,
+    [
+      {
+        name: 'foo',
+        prefix: '/',
+        delimiter: '/',
+        optional: false,
+        repeat: false,
+        pattern: '[+-]?[0-9]+',
+        valType: 'integer'
+      }
+    ],
+    [
+      ['/-3', ['/-3', '-3']],
+      ['/432.94', null],
+      ['/+334', ['/+334', '+334']],
+      ['/334', ['/334', '334']],
+      ['/3notanumber', null],
+      ['/notanumber', null]
+    ],
+    [
+      [{ foo: 432.94 }, null],
+      [{ foo: 432 }, '/432'],
+      [{ foo: -9 }, '/-9'],
+      [{ foo: 'notanumber' }, null]
+    ]
+  ],
+  [
+    '/:foo([234]){integer}',
+    null,
+    [
+      {
+        name: 'foo',
+        prefix: '/',
+        delimiter: '/',
+        optional: false,
+        repeat: false,
+        pattern: '[234]',
+        valType: 'integer'
+      }
+    ],
+    [
+      ['/3', ['/3', '3']],
+      ['/9', null],
+      ['/3notanumber', null],
+      ['/notanumber', null]
+    ],
+    [
+      [{ foo: 432.94 }, null],
+      [{ foo: 432 }, null],
+      [{ foo: 4 }, '/4'],
+      [{ foo: 'notanumber' }, null]
+    ]
   ]
 ]
 
@@ -1913,6 +2027,15 @@ describe('path-to-regexp', function () {
       expect(function () {
         toPath({ foo: [1, 2, 3, 'a'] })
       }).to.throw(TypeError, 'Expected all "foo" to match "\\d+"')
+    })
+  })
+
+  describe('typedMatch', function () {
+    var r = pathToRegexp('/:foo{number}')
+    it('should have type number', function () {
+      var match = r.typedMatch('/340.5')
+      expect(match[1]).to.equal(340.5)
+      expect(typeof match[1]).to.equal(typeof 340.5)
     })
   })
 })
